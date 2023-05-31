@@ -30,10 +30,23 @@ players_data <- cbind(player_gca,
                       player_passing_types,
                       player_possession,
                       player_stats)
+
 # Suppression des colonnes dupliquées
 players_data <- subset(players_data, select = !duplicated(names(players_data)))
+# Récupération des colonnes similaires
+same_columns <- intersect(colnames(players_data), colnames(player_keepers))
+# Merge des données des joueurs avec les données des gardiens
+players_data <- merge(players_data, player_keepers, by = same_columns, all.x = T)
+
+same_columns <- intersect(colnames(players_data), colnames(player_keepersadv))
+players_data <- merge(players_data, player_keepersadv, by = same_columns, all.x = T)
+
 # Remplacement des valeurs NA par des 0
 players_data[is.na(players_data)] <- 0
+
+# Ajout du classement de l'équipe dans le dataset des joueurs
+players_data <- merge(players_data, teams, by.x = "team", by.y = "Team", all.x = T, all.y = T)
+colnames(players_data)[153] <- "Classement"
 
 # Extraction des défenseurs, milieux, attaquants et gardiens
 defensives <- subset(players_data, players_data$position == "DF")
@@ -41,14 +54,5 @@ midfielders <- subset(players_data, players_data$position == "MF")
 forwards <- subset(players_data, players_data$position == "FW")
 goalkeepers <- subset(players_data, players_data$position == "GK")
 
-# Ajout des informations spécifiques aux gardiens
-goalkeepers <- cbind(goalkeepers,
-                     player_keepers,
-                     player_keepersadv)
-goalkeepers <- subset(goalkeepers, select = !duplicated(names(goalkeepers)))
+summary_fw <- as.data.frame(summary(forwards))
 
-players_data <- merge(players_data, teams, by.x = "team", by.y = "Team", all.x = T, all.y = T)
-goalkeepers <- merge(goalkeepers, teams, by.x = "team", by.y = "Team", all.x = T, all.y = T)
-
-colnames(players_data)[153] <- "Classement"
-colnames(goalkeepers)[194] <- "Classement"
