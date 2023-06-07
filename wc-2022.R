@@ -59,11 +59,42 @@ goalkeepers <- subset(players_data, players_data$position == "GK")
 rownames(defensives) <- defensives$player
 rownames(midfielders) <- midfielders$player
 rownames(forwards) <- forwards$player
+rownames(goalkeepers) <- goalkeepers$player
 
 defensives.active <- defensives[, -c(1, 2, 3, 4, 5, 9)]
 midfielders.active <- midfielders[, -c(1, 2, 3, 4, 5, 9)]
 forwards.active <- forwards[, -c(1, 2, 3, 4, 5, 9)]
+goalkeepers.active <- goalkeepers[, -c(1, 2, 3, 4, 5, 9)]
 cols_to_remove <- grepl("gk", colnames(defensives.active))
 defensives.active <- defensives.active[, !cols_to_remove]
 midfielders.active <- midfielders.active[, !cols_to_remove]
 forwards.active <- forwards.active[, !cols_to_remove]
+
+library(FactoMineR)
+acp <- PCA(goalkeepers.active)
+
+library(plyr)
+library(factoextra)
+hcpc = HCPC(acp, graph = FALSE)
+plot(hcpc, choice="map", draw.tree=F)
+plot(hcpc, choice="bar")
+fviz_dend(hcpc, 
+          cex = 0.7,                     # Taille du text
+          palette = "jco",               # Palette de couleur ?ggpubr::ggpar
+          rect = TRUE, rect_fill = TRUE, # Rectangle autour des groupes
+          rect_border = "jco",           # Couleur du rectangle
+          labels_track_height = 0.8      # Augment l'espace pour le texte
+          )
+
+fviz_cluster(hcpc,
+             repel = TRUE,            # Evite le chevauchement des textes
+             show.clust.cent = TRUE, # Montre le centre des clusters
+             palette = "jco",         # Palette de couleurs, voir ?ggpubr::ggpar
+             ggtheme = theme_minimal(),
+             main = "Factor map"
+)
+
+View(head(hcpc$data.clust, 10))
+hcpc$desc.var$quanti
+
+print(hcpc$desc.ind$para)
