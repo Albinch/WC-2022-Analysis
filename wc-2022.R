@@ -48,11 +48,22 @@ players_data[is.na(players_data)] <- 0
 players_data <- merge(players_data, teams, by.x = "team", by.y = "Team", all.x = T, all.y = T)
 colnames(players_data)[153] <- "Classement"
 
+players_data <- subset(players_data, players_data$minutes >= 180)
+
 # Extraction des défenseurs, milieux, attaquants et gardiens
 defensives <- subset(players_data, players_data$position == "DF")
 midfielders <- subset(players_data, players_data$position == "MF")
 forwards <- subset(players_data, players_data$position == "FW")
 goalkeepers <- subset(players_data, players_data$position == "GK")
 
-summary_fw <- as.data.frame(summary(forwards))
+rownames(defensives) <- defensives$player
+rownames(midfielders) <- midfielders$player
+rownames(forwards) <- forwards$player
 
+defensives.active <- defensives[, -c(1, 2, 3, 4, 5, 9)]
+midfielders.active <- midfielders[, -c(1, 2, 3, 4, 5, 9)]
+forwards.active <- forwards[, -c(1, 2, 3, 4, 5, 9)]
+cols_to_remove <- grepl("gk", colnames(defensives.active))
+defensives.active <- defensives.active[, !cols_to_remove]
+midfielders.active <- midfielders.active[, !cols_to_remove]
+forwards.active <- forwards.active[, !cols_to_remove]
