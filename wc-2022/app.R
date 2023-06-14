@@ -71,31 +71,6 @@ ui <- fluidPage(
 
 # Définir le serveur
 server <- function(input, output) {
-  # Filtrer les données en fonction du poste sélectionné
-  filteredData <- reactive({
-    players_data.selected <- subset(players_data, players_data$position == input$poste)
-    rownames(players_data.selected) <- players_data.selected$player
-    players_data.selected <- players_data.selected[, -c(1, 2, 3, 4, 5, 9)]
-    
-    cols_to_divide <- colnames(players_data.selected)[!grepl("90", colnames(players_data.selected))]
-    for (col in cols_to_divide){
-      if(col != "minutes" & col != "Position"){
-        players_data.selected[[col]] <- (players_data.selected[[col]] / players_data.selected$minutes) * 90
-      }
-    }
-    
-    if(input$poste != "GK"){
-      cols_to_remove <- grepl("gk", colnames(players_data.selected))
-      players_data.selected <- players_data.selected[, !cols_to_remove]
-    }
-    
-    players_data.selected
-    
-    acp <- PCA(players_data.selected)
-    hcpc = HCPC(acp, graph = FALSE)
-    hcpc
-  })
-
   # Afficher les statistiques des joueurs sélectionnés
   output$graph <- renderPlotly({
     players_data.selected <- subset(players_data, players_data$position == input$poste)
@@ -114,25 +89,13 @@ server <- function(input, output) {
       players_data.selected <- players_data.selected[, !cols_to_remove]
     }
     
-    pcaPlayers <- prcomp(players_data.selected)
-    playersHC <- hclust(dist(pcaPlayers$x), method = "ward.D2")
-    playersClusters <- cutree(playersHC, k = 3)
+    pcaPlayers <- PCA(players_data.selected, graph=FALSE)
+    playersHC <- HCPC(pcaPlayers, graph=FALSE)
     
-    playersDf <- data.frame(pcaPlayers$x, "cluster" = factor(playersClusters))
-    playersDf <- transform(playersDf, cluster_name = paste("Cluster",playersClusters))
+    playersDf <- transform(players_data.selected, cluster_name = paste("Cluster", playersHC$data.clust$clust))
     
-    # Calculer l'importance des variables par cluster
-    cluster_importance <- aggregate(players_data.selected, by = list(playersClusters), FUN = mean)
-    
-    # Afficher les variables les plus importantes par cluster
-    for (i in 1:3) {
-      cat("Cluster", i, ":\n")
-      top_variables <- sort(cluster_importance[i, -1], decreasing = TRUE)
-      print(head(top_variables))
-      cat("\n")
-    }
-    
-    p <- plot_ly(playersDf, x = pcaPlayers$x[, 1] , y = pcaPlayers$x[, 2], text = rownames(playersDf),
+
+    p <- plot_ly(playersDf, x = pcaPlayers$ind$coord[, 1] , y = pcaPlayers$ind$coord[, 2], text = rownames(playersDf),
                  mode = "markers", color = playersDf$cluster_name, marker = list(size = 11)) 
     
     p <- layout(p, title = "PCA Clusters from Hierarchical Clustering of Cars Data", 
