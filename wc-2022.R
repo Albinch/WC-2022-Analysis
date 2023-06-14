@@ -46,7 +46,6 @@ players_data[is.na(players_data)] <- 0
 
 # Ajout du classement de l'équipe dans le dataset des joueurs
 players_data <- merge(players_data, teams, by.x = "team", by.y = "Team", all.x = T, all.y = T)
-colnames(players_data)[153] <- "Classement"
 
 players_data <- subset(players_data, players_data$minutes >= 180)
 
@@ -65,17 +64,33 @@ defensives.active <- defensives[, -c(1, 2, 3, 4, 5, 9)]
 midfielders.active <- midfielders[, -c(1, 2, 3, 4, 5, 9)]
 forwards.active <- forwards[, -c(1, 2, 3, 4, 5, 9)]
 goalkeepers.active <- goalkeepers[, -c(1, 2, 3, 4, 5, 9)]
+
+min_pos <- min(defensives.active$Position)
+max_pos <- max(defensives.active$Position)
+defensives.active$Position_scaled <- ((defensives.active$Position - min_pos) / (max_pos - min_pos)) * 9 + 1
+
+
+cols_to_divide <- colnames(defensives.active)[!grepl("90", colnames(defensives.active))]
+for (col in cols_to_divide){
+ if(col != "minutes" | col != "Position" | col != "Position_scaled"){
+  defensives.active[[col]] <- (defensives.active[[col]] / defensives.active$minutes) * 90
+  }
+}
+
 cols_to_remove <- grepl("gk", colnames(defensives.active))
 defensives.active <- defensives.active[, !cols_to_remove]
-midfielders.active <- midfielders.active[, !cols_to_remove]
-forwards.active <- forwards.active[, !cols_to_remove]
+#midfielders.active <- midfielders.active[, !cols_to_remove]
+#forwards.active <- forwards.active[, !cols_to_remove]
+
+#data_exclu <- defensives.active[, !colnames(defensives.active) %in% "Position"]
+#data_exclu <- data_exclu[, !colnames(data_exclu) %in% "Position_scaled"]
 
 library(FactoMineR)
-acp <- PCA(goalkeepers.active)
+acp <- PCA(defensives.active)
 
 library(plyr)
 library(factoextra)
-hcpc = HCPC(acp, graph = FALSE)
+hcpc = HCPC(acp, nb.clust = 3, graph = FALSE)
 plot(hcpc, choice="map", draw.tree=F)
 plot(hcpc, choice="bar")
 fviz_dend(hcpc, 
@@ -91,10 +106,9 @@ fviz_cluster(hcpc,
              show.clust.cent = TRUE, # Montre le centre des clusters
              palette = "jco",         # Palette de couleurs, voir ?ggpubr::ggpar
              ggtheme = theme_minimal(),
-             main = "Factor map"
+             main = "Factor map",
 )
 
-View(head(hcpc$data.clust, 10))
 hcpc$desc.var$quanti
 
 print(hcpc$desc.ind$para)
