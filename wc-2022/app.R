@@ -5,6 +5,9 @@ library(FactoMineR)
 library(plyr)
 library(factoextra)
 library(plotly)
+library(dplyr)
+
+setwd("/Users/clementalba/Documents/4A/DATAMINING/WC-2022-Analysis/wc-2022")
 
 # Charger votre jeu de données
 # (Assurez-vous que votre jeu de données est dans le répertoire de travail ou spécifiez le chemin complet)
@@ -50,6 +53,9 @@ players_data <- merge(players_data, teams, by.x = "team", by.y = "Team", all.x =
 
 players_data <- subset(players_data, players_data$minutes >= 180)
 
+rownames(players_data) <- players_data$player
+players_data <- players_data[, -c(1, 2, 4, 5, 9)]
+
 # Créer l'application Shiny
 ui <- fluidPage(
   # Titre de l'application
@@ -63,26 +69,21 @@ ui <- fluidPage(
     
     # Affichage des statistiques des joueurs sélectionnés
     mainPanel(
-      tableOutput("stats"),
-      plotlyOutput("graph")
+      tableOutput("mean_position"),
+      plotlyOutput("graph"),
+      tableOutput("carac_cluster")
     )
   )
 )
 
 # Définir le serveur
 server <- function(input, output) {
-  # Afficher les statistiques des joueurs sélectionnés
-  output$graph <- renderPlotly({
+  output$mean_position <- renderTable({
     players_data.selected <- subset(players_data, players_data$position == input$poste)
-    rownames(players_data.selected) <- players_data.selected$player
-    players_data.selected <- players_data.selected[, -c(1, 2, 3, 4, 5, 9)]
+    players_data.selected <- subset(players_data.selected, select = -c(1))
     
-    cols_to_divide <- colnames(players_data.selected)[!grepl("90", colnames(players_data.selected))]
-    for (col in cols_to_divide){
-      if(col != "minutes" & col != "Position"){
-        players_data.selected[[col]] <- (players_data.selected[[col]] / players_data.selected$minutes) * 90
-      }
-    }
+    cols_to_remove <- grepl("minutes", colnames(players_data.selected))
+    players_data.selected <- players_data.selected[, !cols_to_remove]
     
     if(input$poste != "GK"){
       cols_to_remove <- grepl("gk", colnames(players_data.selected))
@@ -94,7 +95,31 @@ server <- function(input, output) {
     
     playersDf <- transform(players_data.selected, cluster_name = paste("Cluster", playersHC$data.clust$clust))
     
-
+    cluster_mean_position <- aggregate(Position ~ cluster_name, data = playersDf, FUN = mean)
+    cluster_mean_position <- cluster_mean_position[order(cluster_mean_position$Position), ]
+    
+    cluster_mean_position
+  })
+  
+  # Afficher les statistiques des joueurs sélectionnés
+  output$graph <- renderPlotly({
+    players_data.selected <- subset(players_data, players_data$position == input$poste)
+    # players_data.selected <- subset(players_data.selected, select = -c(1))
+    players_data.selected <- subset(players_data.selected, select = !names(players_data.selected) %in% c("position", "Position"))
+    
+    cols_to_remove <- grepl("minutes", colnames(players_data.selected))
+    players_data.selected <- players_data.selected[, !cols_to_remove]
+    
+    if(input$poste != "GK"){
+      cols_to_remove <- grepl("gk", colnames(players_data.selected))
+      players_data.selected <- players_data.selected[, !cols_to_remove]
+    }
+    
+    pcaPlayers <- PCA(players_data.selected, graph=FALSE)
+    playersHC <- HCPC(pcaPlayers, graph=FALSE)
+    
+    playersDf <- transform(players_data.selected, cluster_name = playersHC$data.clust$clust)
+    
     p <- plot_ly(playersDf, x = pcaPlayers$ind$coord[, 1] , y = pcaPlayers$ind$coord[, 2], text = rownames(playersDf),
                  mode = "markers", color = playersDf$cluster_name, marker = list(size = 11)) 
     
@@ -103,6 +128,41 @@ server <- function(input, output) {
                 yaxis = list(title = "PC 2"))
     
     p
+  })
+  
+  output$carac_cluster <- renderTable({
+    players_data.selected <- subset(players_data, players_data$position == input$poste)
+    # players_data.selected <- subset(players_data.selected, select = -c(1))
+    players_data.selected <- subset(players_data.selected, select = !names(players_data.selected) %in% c("position", "Position"))
+
+    cols_to_remove <- grepl("minutes", colnames(players_data.selected))
+    players_data.selected <- players_data.selected[, !cols_to_remove]
+    
+    if(input$poste != "GK"){
+      cols_to_remove <- grepl("gk", colnames(players_data.selected))
+      players_data.selected <- players_data.selected[, !cols_to_remove]
+    }
+    
+    pcaPlayers <- PCA(players_data.selected, graph=FALSE)
+    playersHC <- HCPC(pcaPlayers, graph=FALSE)
+    
+    playersDf <- transform(players_data.selected, cluster_name = playersHC$data.clust$clust)
+    
+    clusters_numbers <- unique(playersDf$cluster_name)
+    
+    clusters_carac = data.frame(V1 = numeric(), V2 = numeric(), V3 = numeric(), V4 = numeric(), V5 = numeric())
+    
+    for(i in 1:length(clusters_numbers)){
+      clusters_carac <- rbind(clusters_carac, rownames(top_n(as.data.frame(playersHC$desc.var$quanti[[i]][, 1]), n = 5)))
+    }
+    
+    colnames(clusters_carac) <- c("Carac1", "Carac2", "Carac3", "Carac4", "Carac5")
+    
+    clusters_carac$Cluster <- paste0("Cluster ", rownames(clusters_carac))
+    
+    clusters_carac <- clusters_carac[, c(6, 1, 2, 3, 4, 5)]
+    
+    clusters_carac
   })
 }
 
