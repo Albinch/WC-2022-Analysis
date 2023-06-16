@@ -71,7 +71,7 @@ ui <- fluidPage(
     mainPanel(
       tableOutput("mean_position"),
       plotlyOutput("graph"),
-      tableOutput("carac_cluster")
+      tableOutput("carac_clusters")
     )
   )
 )
@@ -130,7 +130,7 @@ server <- function(input, output) {
     p
   })
   
-  output$carac_cluster <- renderTable({
+  output$carac_clusters <- renderTable({
     players_data.selected <- subset(players_data, players_data$position == input$poste)
     # players_data.selected <- subset(players_data.selected, select = -c(1))
     players_data.selected <- subset(players_data.selected, select = !names(players_data.selected) %in% c("position", "Position"))
@@ -150,17 +150,32 @@ server <- function(input, output) {
     
     clusters_numbers <- unique(playersDf$cluster_name)
     
-    clusters_carac = data.frame(V1 = numeric(), V2 = numeric(), V3 = numeric(), V4 = numeric(), V5 = numeric())
+    clusters_carac <- data.frame(matrix(nrow = 15, ncol = 4))
+    
+    caracs <- c()
+    cluster_means <- c()
+    overall_means <- c()
+    clusters <- c()
     
     for(i in 1:length(clusters_numbers)){
-      clusters_carac <- rbind(clusters_carac, rownames(top_n(as.data.frame(playersHC$desc.var$quanti[[i]][, 1]), n = 5)))
+      caracs_names <- rownames(top_n(as.data.frame(playersHC$desc.var$quanti[[i]][, 1]), n = 5))
+      c_means <- top_n(as.data.frame(playersHC$desc.var$quanti[[i]]), n = 5)[, 2]
+      o_means <- top_n(as.data.frame(playersHC$desc.var$quanti[[i]]), n = 5)[, 3]
+      for(j in 1:5){
+        clusters <- c(clusters, paste0("Cluster ", i))
+      }
+      
+      caracs <- c(caracs, caracs_names)
+      cluster_means <- c(cluster_means, c_means)
+      overall_means <- c(overall_means, o_means)
     }
     
-    colnames(clusters_carac) <- c("Carac1", "Carac2", "Carac3", "Carac4", "Carac5")
+    clusters_carac$X1 <- clusters
+    clusters_carac$X2 <- caracs
+    clusters_carac$X3 <- cluster_means
+    clusters_carac$X4 <- overall_means
     
-    clusters_carac$Cluster <- paste0("Cluster ", rownames(clusters_carac))
-    
-    clusters_carac <- clusters_carac[, c(6, 1, 2, 3, 4, 5)]
+    colnames(clusters_carac) <- c("Cluster", "Caractéristique", "Moyenne cluster", "Moyenne totale")
     
     clusters_carac
   })
